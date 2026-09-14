@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+!.env.*.example
+!**/.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Build output and generated code
+dist/
+dist-ssr/
+build/
+out/
+*.tsbuildinfo
+server/src/generated/prisma/
+
+# Test output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
+# Tool caches
+.cache/
+.vite/
+.vitest/
+.eslintcache
+.prettier-cache
+
+# Logs and runtime process files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.pid.lock
+
+# Local databases, uploaded files, and temporary data
+server/prisma/dev.db
+server/prisma/dev.db-*
+server/uploads/
+server/tmp/
+tmp/
+.tmp/
+backups/
+*.dump
+*.backup
+
+# IDE and editor-specific files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.code-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Internal planning files (replace README.md with a public-safe version before publishing)
+/agents.md
+/progress.md
+/plan/

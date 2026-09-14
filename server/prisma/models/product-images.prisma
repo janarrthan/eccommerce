@@ -1,0 +1,26 @@
+model ProductImage {
+  id           String                @id @default(cuid())
+  productId    String
+  product      Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url          String
+  altText      String?
+  position     Int                   @default(0)
+  variantLinks ProductVariantImage[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([productId, position])
+}
+
+// Ordered many-to-many link that lets variants share product-owned images.
+model ProductVariantImage {
+  variantId String
+  imageId   String
+  position  Int            @default(0)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  image     ProductImage   @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, imageId])
+  @@index([variantId, position])
+  @@index([imageId])
+}

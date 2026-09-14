@@ -1,0 +1,54 @@
+// Explicit prices use each currency's configured minor unit (for example, USD cents).
+model ProductVariantPrice {
+  id           String           @id @default(cuid())
+  variantId    String
+  variant      ProductVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  currencyCode String           @db.VarChar(3)
+  currency     CommerceCurrency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+  amountMinor  Int
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([variantId, currencyCode])
+  @@index([currencyCode])
+}
+
+// The application owns one row with ID "default" because this is a single-store system.
+model CommerceSettings {
+  id               String           @id
+  baseCurrencyCode String           @db.VarChar(3)
+  baseCurrency     CommerceCurrency @relation(fields: [baseCurrencyCode], references: [code], onDelete: Restrict)
+  rateTtlMinutes   Int              @default(1440)
+  updatedAt        DateTime         @updatedAt
+}
+
+model CommerceCurrency {
+  code            String                @id @db.VarChar(3)
+  minorUnitDigits Int                   @default(2)
+  isEnabled       Boolean               @default(true)
+  prices          ProductVariantPrice[]
+  // Prisma represents this reverse relation as an array because baseCurrencyCode is not unique.
+  // The application is still single-store and only uses CommerceSettings with ID "default".
+  settingsAsBase  CommerceSettings[]
+  ratesAsBase     ExchangeRate[]        @relation("ExchangeRateBaseCurrency")
+  ratesAsQuote    ExchangeRate[]        @relation("ExchangeRateQuoteCurrency")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+// One base-currency major unit equals `rate` quote-currency major units.
+model ExchangeRate {
+  baseCurrencyCode  String           @db.VarChar(3)
+  quoteCurrencyCode String           @db.VarChar(3)
+  rate              Decimal          @db.Decimal(24, 12)
+  provider          String
+  fetchedAt         DateTime
+  expiresAt         DateTime
+  baseCurrency      CommerceCurrency @relation("ExchangeRateBaseCurrency", fields: [baseCurrencyCode], references: [code], onDelete: Restrict)
+  quoteCurrency     CommerceCurrency @relation("ExchangeRateQuoteCurrency", fields: [quoteCurrencyCode], references: [code], onDelete: Restrict)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@id([baseCurrencyCode, quoteCurrencyCode])
+  @@index([baseCurrencyCode, expiresAt])
+}

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eccommerce-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: eccommerce
+      POSTGRES_PASSWORD: eccommerce
+      POSTGRES_DB: eccommerce
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eccommerce -d eccommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
