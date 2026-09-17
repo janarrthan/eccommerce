@@ -120,7 +120,9 @@ function existingConfiguration(product: SavedProduct): ProductOptionsInput {
       .filter(({ isActive }) => isActive)
       .map((variant) => ({
         id: variant.id,
-        selections: selectionBySku[variant.sku],
+        selections: selectionBySku[variant.sku].map((selection) => ({
+          ...selection,
+        })),
       })),
   };
 }
@@ -192,8 +194,10 @@ describe("admin product options", () => {
 
   it("rolls back the complete snapshot when a duplicate or invalid selection is rejected", async () => {
     const { agent, csrfToken } = await createAgent();
+
     const path = `/api/admin/products/${productId}/options`;
     const before = await agent.put(path).set(CSRF_HEADER_NAME, csrfToken).send(configuration()).expect(200);
+
     const duplicate = existingConfiguration(before.body.product as SavedProduct);
     duplicate.variants[1].selections = [...duplicate.variants[0].selections].reverse();
     await agent.put(path).set(CSRF_HEADER_NAME, csrfToken).send(duplicate).expect(409);
