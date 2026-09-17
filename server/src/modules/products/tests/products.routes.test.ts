@@ -231,7 +231,6 @@ describe("product routes", () => {
     await prisma.category.deleteMany({
       where: { slug: { in: categorySlugs } },
     });
-    await prisma.$disconnect();
   });
 
   it("returns active products with categories, variants, and ordered images", async () => {

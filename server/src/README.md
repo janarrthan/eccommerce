@@ -12,3 +12,5 @@ The `pricing` module owns currency settings, exchange-rate cache ingestion, dete
 Prisma models are split by concern under `prisma/models/`: core products and variants, categories, product options, product images, pricing, authentication, and authorization. Relations may cross these files because `prisma.config.ts` loads the complete `prisma` schema directory.
 
 The app should remain one deployable Express service. Do not split this project into microservices.
+
+Backend tests use separate Vitest unit and integration projects. Integration tests run against a dedicated disposable PostgreSQL database, with a migrated schema per worker and shared provisioning, reset, and teardown. See [Database Test Isolation](shared/testing/README.md) for the safety boundaries, file responsibilities, and local commands. Production builds exclude tests; the separate type-check configuration still checks test infrastructure and tool configuration.

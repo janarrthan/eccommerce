@@ -9,10 +9,21 @@ import { COMMERCE_SETTINGS_ID } from "../pricing.constants.js";
 
 const email = "pricing.admin@example.com";
 const roleCode = "TEST_PRICING_ADMIN";
+const currencyCodes = ["USD", "EUR", "LKR"];
 
 async function cleanup() {
   await prisma.user.deleteMany({ where: { email } });
   await prisma.role.deleteMany({ where: { code: roleCode } });
+  // These records are shared pricing fixtures for this file. Removing them in beforeEach isolates
+  // every test, and removing them in afterAll leaves no fixtures behind after the final test.
+  await prisma.exchangeRate.deleteMany({
+    where: {
+      baseCurrencyCode: { in: currencyCodes },
+      quoteCurrencyCode: { in: currencyCodes },
+    },
+  });
+  await prisma.commerceSettings.deleteMany({ where: { id: COMMERCE_SETTINGS_ID } });
+  await prisma.commerceCurrency.deleteMany({ where: { code: { in: currencyCodes } } });
 }
 
 async function createAgent(withPermissions = true) {
@@ -81,7 +92,6 @@ describe("pricing administration", () => {
 
   afterAll(async () => {
     await cleanup();
-    await prisma.$disconnect();
   });
 
   it("requires settings permissions and CSRF protection", async () => {

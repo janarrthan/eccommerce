@@ -6,10 +6,7 @@ import { prisma } from "../../../shared/db/prisma.js";
 import { errorHandler } from "../../../shared/http/error-handler.js";
 import { createSessionMiddleware } from "../../../shared/middleware/session.js";
 import { PERMISSION_CODES } from "../authorization.constants.js";
-import {
-  requireAdminAccess,
-  requirePermission,
-} from "../authorization.middleware.js";
+import { requireAdminAccess, requirePermission } from "../authorization.middleware.js";
 
 const adminEmail = "authorization.admin@example.com";
 const customerEmail = "authorization.customer@example.com";
@@ -38,13 +35,9 @@ function createTestApp() {
     res.status(200).json({ authorization: res.locals.authorization });
   });
 
-  app.get(
-    "/catalog",
-    requirePermission(PERMISSION_CODES.CATALOG_READ),
-    (_req, res) => {
-      res.status(200).json({ authorization: res.locals.authorization });
-    },
-  );
+  app.get("/catalog", requirePermission(PERMISSION_CODES.CATALOG_READ), (_req, res) => {
+    res.status(200).json({ authorization: res.locals.authorization });
+  });
 
   app.use(errorHandler);
 
@@ -102,7 +95,6 @@ describe("database authorization middleware", () => {
       where: { email: { in: [adminEmail, customerEmail] } },
     });
     await prisma.role.deleteMany({ where: { code: testRoleCode } });
-    await prisma.$disconnect();
   });
 
   it("rejects requests without a session user", async () => {

@@ -314,7 +314,8 @@ async function seedPricing() {
     ],
     rateTtlMinutes: 7 * 24 * 60,
   });
-  // Fixed demo rates make seeded behavior reproducible; production should refresh from a reviewed provider.
+  // Use fixed demo exchange rates so every seed run produces the same results. A production system
+  // should fetch current rates from an approved exchange-rate provider.
   await storeExchangeRates({
     provider: "seeded-demo",
     rates: [
@@ -471,7 +472,9 @@ async function main() {
       }),
     });
 
-    const desiredVariantBySku = new Map(product.variants.map((variant) => [variant.sku, variant] as const));
+    const desiredVariantBySku = new Map<string, (typeof product.variants)[number]>(
+      product.variants.map((variant) => [variant.sku, variant] as const),
+    );
     // Variant IDs must exist before their ordered image links can be configured.
     await configureProductVariantImages(savedProduct.id, {
       variants: configuredProduct.variants.map((variant) => ({

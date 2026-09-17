@@ -1,0 +1,19 @@
+name: eccommerce-tests
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: eccommerce_test
+      POSTGRES_PASSWORD: eccommerce_test
+      POSTGRES_DB: eccommerce_test
+    ports:
+      - "127.0.0.1:5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eccommerce_test -d eccommerce_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

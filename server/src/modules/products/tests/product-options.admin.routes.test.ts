@@ -151,7 +151,6 @@ describe("admin product options", () => {
 
   afterAll(async () => {
     await cleanup();
-    await prisma.$disconnect();
   });
 
   it("requires authentication, catalog write permission, and a valid CSRF token", async () => {

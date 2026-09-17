@@ -22,7 +22,6 @@ describe("auth routes", () => {
     await prisma.user.deleteMany({
       where: { email: { in: testEmails } },
     });
-    await prisma.$disconnect();
   });
 
   it("registers a customer and starts a session", async () => {
@@ -63,9 +62,7 @@ describe("auth routes", () => {
       })
       .expect(409);
 
-    expect(response.body.error.message).toBe(
-      "An account with this email already exists.",
-    );
+    expect(response.body.error.message).toBe("An account with this email already exists.");
   });
 
   it("logs in a customer and starts a session", async () => {
@@ -209,13 +206,9 @@ describe("auth routes", () => {
     const setCookie = response.headers["set-cookie"];
     const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
 
-    expect(
-      cookies.some(
-        (cookie) =>
-          cookie?.startsWith(`${SESSION_COOKIE_NAME}=`) &&
-          cookie.includes("Expires="),
-      ),
-    ).toBe(true);
+    expect(cookies.some((cookie) => cookie?.startsWith(`${SESSION_COOKIE_NAME}=`) && cookie.includes("Expires="))).toBe(
+      true,
+    );
   });
 
   it("rejects logout without a CSRF token", async () => {
@@ -262,10 +255,7 @@ describe("auth routes", () => {
       .expect(200);
     await agent.get("/api/auth/csrf-token").expect(200);
 
-    const response = await agent
-      .post("/api/auth/logout")
-      .set(CSRF_HEADER_NAME, "invalid-token")
-      .expect(403);
+    const response = await agent.post("/api/auth/logout").set(CSRF_HEADER_NAME, "invalid-token").expect(403);
 
     expect(response.body.error.message).toBe("Invalid CSRF token.");
   });

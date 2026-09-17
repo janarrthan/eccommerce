@@ -138,7 +138,6 @@ describe("admin product variant images", () => {
 
   afterAll(async () => {
     await cleanup();
-    await prisma.$disconnect();
   });
 
   it("requires permissions and CSRF protection", async () => {
