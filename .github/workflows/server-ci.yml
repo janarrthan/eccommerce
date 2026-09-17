@@ -37,8 +37,7 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
-      - name: Generate Prisma Client without connecting to a database
-        run: npm run db:generate
+      - run: npm run db:generate
         env:
           DATABASE_URL: postgresql://unused:unused@localhost:1/generation_only
       - run: npm run lint
