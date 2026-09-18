@@ -11,5 +11,4 @@ export const PERMISSION_CODES = {
   SETTINGS_WRITE: "settings:write",
 } as const;
 
-export type PermissionCode =
-  (typeof PERMISSION_CODES)[keyof typeof PERMISSION_CODES];
+export type PermissionCode = (typeof PERMISSION_CODES)[keyof typeof PERMISSION_CODES];

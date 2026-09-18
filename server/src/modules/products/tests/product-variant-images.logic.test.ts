@@ -22,11 +22,7 @@ describe("variant image assignments", () => {
 
   it("rejects foreign or repeated variant IDs", () => {
     expect(() =>
-      validateVariantImageAssignments(
-        { variants: [{ variantId: "foreign", imageIds: [] }] },
-        ["variant"],
-        ["image"],
-      ),
+      validateVariantImageAssignments({ variants: [{ variantId: "foreign", imageIds: [] }] }, ["variant"], ["image"]),
     ).toThrow("variant ID must belong");
     expect(() =>
       validateVariantImageAssignments(

@@ -4,8 +4,7 @@ import session from "express-session";
 import { env } from "../config/env.js";
 
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
-const DEVELOPMENT_SESSION_SECRET =
-  "development-session-secret-change-before-production";
+const DEVELOPMENT_SESSION_SECRET = "development-session-secret-change-before-production";
 
 export const SESSION_COOKIE_NAME = "eccommerce.sid";
 
