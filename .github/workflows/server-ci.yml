@@ -5,10 +5,12 @@ on:
     paths:
       - "server/**"
       - ".github/workflows/server-ci.yml"
+      - ".prettierrc.json"
   pull_request:
     paths:
       - "server/**"
       - ".github/workflows/server-ci.yml"
+      - ".prettierrc.json"
   workflow_dispatch:
 
 permissions:
