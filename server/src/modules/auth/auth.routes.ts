@@ -2,10 +2,7 @@ import { Router } from "express";
 
 import { asyncHandler } from "../../shared/http/async-handler.js";
 import { requireAuthenticated } from "../../shared/middleware/authenticated.js";
-import {
-  getOrCreateCsrfToken,
-  requireCsrfToken,
-} from "../../shared/middleware/csrf.js";
+import { getOrCreateCsrfToken, requireCsrfToken } from "../../shared/middleware/csrf.js";
 import { SESSION_COOKIE_NAME } from "../../shared/middleware/session.js";
 import { getCurrentUser, loginUser, registerCustomer } from "./auth.service.js";
 import { loginSchema, registerSchema } from "./auth.validation.js";

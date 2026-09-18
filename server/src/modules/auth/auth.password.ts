@@ -11,10 +11,7 @@ export async function hashPassword(password: string) {
   return `${salt}:${derivedKey.toString("hex")}`;
 }
 
-export async function verifyPassword(
-  password: string,
-  storedPasswordHash: string,
-) {
+export async function verifyPassword(password: string, storedPasswordHash: string) {
   const [salt, storedHash] = storedPasswordHash.split(":");
 
   if (!salt || !storedHash) {
@@ -22,11 +19,7 @@ export async function verifyPassword(
   }
 
   const storedKey = Buffer.from(storedHash, "hex");
-  const derivedKey = (await scryptAsync(
-    password,
-    salt,
-    storedKey.length,
-  )) as Buffer;
+  const derivedKey = (await scryptAsync(password, salt, storedKey.length)) as Buffer;
 
   return timingSafeEqual(storedKey, derivedKey);
 }

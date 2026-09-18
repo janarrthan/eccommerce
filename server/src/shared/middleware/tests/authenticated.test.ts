@@ -31,9 +31,7 @@ function createTestApp() {
 
 describe("requireAuthenticated", () => {
   it("rejects requests without a session user", async () => {
-    const response = await request(createTestApp())
-      .get("/protected")
-      .expect(401);
+    const response = await request(createTestApp()).get("/protected").expect(401);
 
     expect(response.body.error.message).toBe("Authentication required.");
   });

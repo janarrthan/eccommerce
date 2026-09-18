@@ -26,11 +26,7 @@ export const requireCsrfToken: RequestHandler = (req, _res, next) => {
   const expectedToken = req.session.csrfToken;
   const submittedToken = req.get(CSRF_HEADER_NAME);
 
-  if (
-    !expectedToken ||
-    !submittedToken ||
-    !tokensMatch(submittedToken, expectedToken)
-  ) {
+  if (!expectedToken || !submittedToken || !tokensMatch(submittedToken, expectedToken)) {
     next(new HttpError(403, "Invalid CSRF token."));
     return;
   }
