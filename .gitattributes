@@ -1,0 +1,6 @@
+# Keep repository text files consistent across Windows and Linux.
+* text=auto eol=lf
+
+# Preserve Windows line endings for Windows command scripts.
+*.bat text eol=crlf
+*.cmd text eol=crlf
