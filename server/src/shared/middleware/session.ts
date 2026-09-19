@@ -21,7 +21,7 @@ function createSessionStore() {
 
   return new PgSessionStore({
     conString: env.DATABASE_URL,
-    createTableIfMissing: true,
+    createTableIfMissing: false,
     pruneSessionInterval: 60 * 30,
   });
 }
@@ -36,7 +36,7 @@ export function createSessionMiddleware() {
     cookie: {
       httpOnly: true,
       maxAge: SESSION_MAX_AGE_MS,
-      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: env.SESSION_COOKIE_SAME_SITE,
       secure: env.NODE_ENV === "production",
     },
   });
