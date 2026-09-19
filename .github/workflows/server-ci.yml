@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: server-ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 defaults:
   run:
@@ -193,3 +193,278 @@ jobs:
           path: server/test-results/integration.xml
           if-no-files-found: ignore
           retention-days: 7
+
+  container:
+    name: Build and verify backend container
+    needs: [unit, integration]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image-name: ${{ steps.image.outputs.name }}
+      image-ref: ${{ steps.image.outputs.ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # This SHA pins v7.0.1.
+        with:
+          persist-credentials: false
+
+      - name: Define the image identity
+        id: image
+        shell: bash
+        run: |
+          image_name="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/eccommerce-server"
+          echo "name=${image_name}" >> "$GITHUB_OUTPUT"
+          echo "ref=${image_name}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the production image once
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          created="$(git show -s --format=%cI "$GITHUB_SHA")"
+
+          docker build \
+            --file Dockerfile \
+            --build-arg "BUILD_CREATED=${created}" \
+            --build-arg "BUILD_REVISION=${GITHUB_SHA}" \
+            --build-arg "BUILD_SOURCE=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --tag "$IMAGE_REF" \
+            .
+
+      - name: Verify the restricted runtime and health endpoint
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p test-results/container
+
+          configured_user="$(docker image inspect --format '{{.Config.User}}' "$IMAGE_REF")"
+
+          if [ -z "$configured_user" ] || [ "$configured_user" = "0" ] || [ "$configured_user" = "root" ]; then
+            echo "The runtime image must configure a non-root user."
+            exit 1
+          fi
+
+          container_id=""
+
+          cleanup() {
+            if [ -n "$container_id" ]; then
+              docker logs "$container_id" > test-results/container/smoke-server.log 2>&1 || true
+              docker rm --force "$container_id" >/dev/null 2>&1 || true
+            fi
+          }
+
+          trap cleanup EXIT
+
+          container_id="$(docker run \
+            --detach \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --publish 127.0.0.1::4000 \
+            --env NODE_ENV=production \
+            --env PORT=4000 \
+            --env CLIENT_ORIGIN=http://localhost:5173 \
+            --env SESSION_SECRET=ci-container-smoke-only-not-a-real-secret \
+            --env DATABASE_URL=postgresql://unused:unused@127.0.0.1:1/smoke_only \
+            "$IMAGE_REF")"
+
+          host_port="$(docker port "$container_id" 4000/tcp | awk -F: 'NR == 1 { print $NF }')"
+          healthy=false
+
+          for attempt in {1..30}; do
+            if curl --fail --silent \
+              "http://127.0.0.1:${host_port}/health" \
+              --output test-results/container/health-response.json; then
+              healthy=true
+              break
+            fi
+
+            if [ "$(docker inspect --format '{{.State.Running}}' "$container_id")" != "true" ]; then
+              echo "The container exited before becoming healthy."
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          if [ "$healthy" != "true" ]; then
+            echo "The container did not become healthy within 30 seconds."
+            exit 1
+          fi
+
+          node --input-type=module -e '
+            import { readFile } from "node:fs/promises";
+
+            const response = JSON.parse(
+              await readFile("test-results/container/health-response.json", "utf8"),
+            );
+
+            if (
+              response.status !== "ok" ||
+              response.service !== "eccommerce-api"
+            ) {
+              throw new Error(
+                `Unexpected health response: ${JSON.stringify(response)}`,
+              );
+            }
+          '
+
+          if [ "$(docker inspect --format '{{.State.Running}}' "$container_id")" != "true" ]; then
+            echo "The container stopped unexpectedly after responding."
+            exit 1
+          fi
+
+      - name: Upload container smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # This SHA pins v7.0.1.
+        with:
+          name: server-container-smoke-diagnostics
+          path: |
+            server/test-results/container/smoke-server.log
+            server/test-results/container/health-response.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Generate the image SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # This SHA pins v0.24.2.
+        with:
+          image: ${{ steps.image.outputs.ref }}
+          format: spdx-json
+          output-file: ${{ runner.temp }}/server-sbom.spdx.json
+          syft-version: v1.52.0
+          upload-artifact: false
+
+      - name: Hash the SBOM
+        run: sha256sum "${RUNNER_TEMP}/server-sbom.spdx.json" > "${RUNNER_TEMP}/server-sbom.spdx.json.sha256"
+
+      - name: Upload the SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # This SHA pins v7.0.1.
+        with:
+          name: server-sbom-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/server-sbom.spdx.json
+            ${{ runner.temp }}/server-sbom.spdx.json.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Scan the image for vulnerabilities and embedded secrets
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # This SHA pins v0.36.0.
+        with:
+          scan-type: image
+          image-ref: ${{ steps.image.outputs.ref }}
+          scanners: vuln,secret
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          format: table
+          exit-code: "1"
+          hide-progress: true
+          version: v0.70.0
+
+      - name: Save the verified image for the publishing job
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: docker save --output "${RUNNER_TEMP}/server-image.tar" "$IMAGE_REF"
+
+      - name: Transfer the verified image to the publishing job
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # This SHA pins v7.0.1.
+        with:
+          name: server-container-${{ github.sha }}
+          path: ${{ runner.temp }}/server-image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish-container:
+    name: Publish immutable backend container
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [container]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # This SHA pins v7.0.1.
+        with:
+          persist-credentials: false
+
+      - name: Download the verified image
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # This SHA pins v8.0.1.
+        with:
+          name: server-container-${{ github.sha }}
+          path: ${{ runner.temp }}
+
+      - name: Load and verify the transferred image
+        env:
+          IMAGE_REF: ${{ needs.container.outputs.image-ref }}
+        run: |
+          docker load --input "${RUNNER_TEMP}/server-image.tar"
+          docker image inspect "$IMAGE_REF" >/dev/null
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # This SHA pins v4.6.0.
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish and record the immutable digest
+        id: publish
+        env:
+          IMAGE_NAME: ${{ needs.container.outputs.image-name }}
+          IMAGE_REF: ${{ needs.container.outputs.image-ref }}
+        run: |
+          set -Eeuo pipefail
+
+          docker push "$IMAGE_REF"
+          docker pull "$IMAGE_REF"
+
+          digest_ref="$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE_REF")"
+          repository="${digest_ref%@*}"
+          digest="${digest_ref#*@}"
+
+          if [ "$repository" != "$IMAGE_NAME" ] || [[ "$digest" != sha256:* ]] || [ "${#digest}" -ne 71 ]; then
+            echo "The registry did not return the expected immutable digest reference."
+            exit 1
+          fi
+
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+          jq -n \
+            --arg sourceCommit "$GITHUB_SHA" \
+            --arg tagReference "$IMAGE_REF" \
+            --arg digestReference "$digest_ref" \
+            --arg workflowRun "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            '{
+              sourceCommit: $sourceCommit,
+              tagReference: $tagReference,
+              digestReference: $digestReference,
+              workflowRun: $workflowRun
+            }' > "${RUNNER_TEMP}/server-image-metadata.json"
+
+          sha256sum "${RUNNER_TEMP}/server-image-metadata.json" \
+            > "${RUNNER_TEMP}/server-image-metadata.json.sha256"
+
+          {
+            echo "### Published backend image"
+            echo
+            echo "- Source commit: \`${GITHUB_SHA}\`"
+            echo "- Commit tag: \`${IMAGE_REF}\`"
+            echo "- Digest reference: \`${digest_ref}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload publication metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # This SHA pins v7.0.1.
+        with:
+          name: server-image-metadata-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/server-image-metadata.json
+            ${{ runner.temp }}/server-image-metadata.json.sha256
+          if-no-files-found: error
+          retention-days: 30
