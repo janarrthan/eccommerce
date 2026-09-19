@@ -13,6 +13,8 @@ const envSchema = z
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     STRIPE_SUCCESS_URL: z.string().url().optional(),
     STRIPE_CANCEL_URL: z.string().url().optional(),
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+    SESSION_COOKIE_SAME_SITE: z.enum(["lax", "none"]).default("lax"),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== "test" && !value.DATABASE_URL) {

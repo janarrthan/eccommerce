@@ -6,6 +6,7 @@ import { getOrCreateCsrfToken, requireCsrfToken } from "../../shared/middleware/
 import { SESSION_COOKIE_NAME } from "../../shared/middleware/session.js";
 import { getCurrentUser, loginUser, registerCustomer } from "./auth.service.js";
 import { loginSchema, registerSchema } from "./auth.validation.js";
+import { establishAuthenticatedSession } from "./auth.session.js";
 
 export const authRouter = Router();
 
@@ -32,10 +33,10 @@ authRouter.post(
     const input = registerSchema.parse(req.body);
     const user = await registerCustomer(input);
 
-    req.session.user = {
+    await establishAuthenticatedSession(req, {
       id: user.id,
       email: user.email,
-    };
+    });
 
     res.status(201).json({ user });
   }),
@@ -47,10 +48,10 @@ authRouter.post(
     const input = loginSchema.parse(req.body);
     const user = await loginUser(input);
 
-    req.session.user = {
+    await establishAuthenticatedSession(req, {
       id: user.id,
       email: user.email,
-    };
+    });
 
     res.status(200).json({ user });
   }),

@@ -1,6 +1,11 @@
 import request from "supertest";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
+import express from "express";
+import { errorHandler } from "../../../shared/http/error-handler.js";
+import { createSessionMiddleware } from "../../../shared/middleware/session.js";
+import { authRouter } from "../auth.routes.js";
+
 import { app } from "../../../app.js";
 import { prisma } from "../../../shared/db/prisma.js";
 import { CSRF_HEADER_NAME } from "../../../shared/middleware/csrf.js";
@@ -10,6 +15,41 @@ import { hashPassword } from "../auth.password.js";
 const registerEmail = "register.customer@example.com";
 const loginEmail = "login.customer@example.com";
 const testEmails = [registerEmail, loginEmail];
+
+const PRE_AUTH_CSRF_TOKEN = "pre-auth-csrf-token";
+
+function createSessionFixationTestApp() {
+  const testApp = express();
+
+  testApp.use(createSessionMiddleware());
+  testApp.use(express.json({ limit: "1mb" }));
+  testApp.post("/test/pre-auth-session", (req, res, next) => {
+    req.session.csrfToken = PRE_AUTH_CSRF_TOKEN;
+    req.session.save((error) => {
+      if (error) {
+        next(error);
+        return;
+      }
+
+      res.status(200).json({ csrfToken: PRE_AUTH_CSRF_TOKEN });
+    });
+  });
+  testApp.use("/api/auth", authRouter);
+  testApp.use(errorHandler);
+
+  return testApp;
+}
+
+function getSessionCookie(setCookieHeader: string | string[] | undefined) {
+  const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  const sessionCookie = cookies.find((cookie) => cookie?.startsWith(`${SESSION_COOKIE_NAME}=`));
+
+  if (!sessionCookie) {
+    throw new Error("Expected the response to set the session cookie.");
+  }
+
+  return sessionCookie.split(";")[0];
+}
 
 describe("auth routes", () => {
   beforeEach(async () => {
@@ -258,5 +298,45 @@ describe("auth routes", () => {
     const response = await agent.post("/api/auth/logout").set(CSRF_HEADER_NAME, "invalid-token").expect(403);
 
     expect(response.body.error.message).toBe("Invalid CSRF token.");
+  });
+
+  it("rotates the session ID and CSRF token during login", async () => {
+    await prisma.user.create({
+      data: {
+        email: loginEmail,
+        name: "Login Customer",
+        passwordHash: await hashPassword("Login123!"),
+      },
+    });
+
+    const fixationApp = createSessionFixationTestApp();
+    const agent = request.agent(fixationApp);
+    const anonymousResponse = await agent.post("/test/pre-auth-session").expect(200);
+    const oldCookie = getSessionCookie(anonymousResponse.headers["set-cookie"]);
+
+    const loginResponse = await agent
+      .post("/api/auth/login")
+      .send({
+        email: loginEmail,
+        password: "Login123!",
+      })
+      .expect(200);
+    const newCookie = getSessionCookie(loginResponse.headers["set-cookie"]);
+
+    expect(newCookie).not.toBe(oldCookie);
+
+    await request(fixationApp).get("/api/auth/me").set("Cookie", oldCookie).expect(200, { user: null });
+
+    const currentUserResponse = await request(fixationApp).get("/api/auth/me").set("Cookie", newCookie).expect(200);
+    expect(currentUserResponse.body.user.email).toBe(loginEmail);
+
+    const csrfResponse = await request(fixationApp).get("/api/auth/csrf-token").set("Cookie", newCookie).expect(200);
+    expect(csrfResponse.body.csrfToken).not.toBe(PRE_AUTH_CSRF_TOKEN);
+
+    await request(fixationApp)
+      .post("/api/auth/logout")
+      .set("Cookie", newCookie)
+      .set(CSRF_HEADER_NAME, PRE_AUTH_CSRF_TOKEN)
+      .expect(403);
   });
 });
