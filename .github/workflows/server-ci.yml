@@ -239,7 +239,7 @@ jobs:
 
           configured_user="$(docker image inspect --format '{{.Config.User}}' "$IMAGE_REF")"
 
-          if [ -z "$configured_user" ] || [ "$configured_user" = "0" ] || [ "$configured_user" = "root" ]; then
+          if [[ -z "$configured_user" || "$configured_user" == "0" || "$configured_user" == 0:* || "$configured_user" == "root" || "$configured_user" == root:* ]]; then
             echo "The runtime image must configure a non-root user."
             exit 1
           fi
@@ -348,15 +348,71 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Scan the image for vulnerabilities and embedded secrets
+      - name: Generate the complete vulnerability report
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # This SHA pins v0.36.0.
         with:
           scan-type: image
           image-ref: ${{ steps.image.outputs.ref }}
-          scanners: vuln,secret
+          scanners: vuln
           vuln-type: os,library
-          severity: HIGH,CRITICAL
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           ignore-unfixed: false
+          format: json
+          output: ${{ runner.temp }}/server-trivy-vulnerabilities.json
+          exit-code: "0"
+          hide-progress: true
+          version: v0.70.0
+
+      - name: Hash the vulnerability report
+        run: |
+          cd "$RUNNER_TEMP"
+          sha256sum server-trivy-vulnerabilities.json > server-trivy-vulnerabilities.json.sha256
+
+      - name: Upload the vulnerability report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # This SHA pins v7.0.1.
+        with:
+          name: server-trivy-vulnerabilities-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/server-trivy-vulnerabilities.json
+            ${{ runner.temp }}/server-trivy-vulnerabilities.json.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Block embedded secrets
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # This SHA pins v0.36.0.
+        with:
+          scan-type: image
+          image-ref: ${{ steps.image.outputs.ref }}
+          scanners: secret
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+          hide-progress: true
+          version: v0.70.0
+
+      - name: Block all critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # This SHA pins v0.36.0.
+        with:
+          scan-type: image
+          image-ref: ${{ steps.image.outputs.ref }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: CRITICAL
+          ignore-unfixed: false
+          format: table
+          exit-code: "1"
+          hide-progress: true
+          version: v0.70.0
+
+      - name: Block fixable high vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # This SHA pins v0.36.0.
+        with:
+          scan-type: image
+          image-ref: ${{ steps.image.outputs.ref }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH
+          ignore-unfixed: true
           format: table
           exit-code: "1"
           hide-progress: true
