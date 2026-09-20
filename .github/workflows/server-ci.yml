@@ -6,11 +6,13 @@ on:
       - "server/**"
       - ".github/workflows/server-ci.yml"
       - ".prettierrc.json"
+      - ".github/scripts/**"
   pull_request:
     paths:
       - "server/**"
       - ".github/workflows/server-ci.yml"
       - ".prettierrc.json"
+      - ".github/scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -40,6 +42,26 @@ jobs:
           cache-dependency-path: server/package-lock.json
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Check staging automation script syntax
+        working-directory: .
+        run: |
+          node --check .github/scripts/deploy-render-image.mjs
+          node --check .github/scripts/smoke-staging.mjs
+          node --check .github/scripts/lib/runtime.mjs
+
+      - name: Check staging automation formatting
+        working-directory: .
+        run: |
+          server/node_modules/.bin/prettier --check ".github/scripts/**/*.mjs"
+
+      - name: Run staging automation unit tests
+        working-directory: .
+        run: |
+          node --test \
+            .github/scripts/tests/deploy-render-image.test.mjs \
+            .github/scripts/tests/smoke-staging.test.mjs
+
       - name: Check formatting
         run: npm run format:check
       - name: Generate Prisma Client without connecting to a database
@@ -522,5 +544,74 @@ jobs:
           path: |
             ${{ runner.temp }}/server-image-metadata.json
             ${{ runner.temp }}/server-image-metadata.json.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  staging:
+    name: Promote digest to staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [container, publish-container]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    concurrency:
+      group: eccommerce-staging-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Apply staging database migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_MIGRATION_DATABASE_URL }}
+        run: npm exec -- prisma migrate deploy
+
+      - name: Deploy the tested digest to Render
+        id: render
+        env:
+          IMAGE_REF: ${{ needs.container.outputs.image-name }}@${{ needs.publish-container.outputs.digest }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_STAGING_SERVICE_ID }}
+        run: node ../.github/scripts/deploy-render-image.mjs
+
+      - name: Run staging smoke checks
+        id: smoke
+        env:
+          STAGING_API_ORIGIN: ${{ vars.STAGING_API_ORIGIN }}
+          STAGING_WEB_ORIGIN: ${{ vars.STAGING_WEB_ORIGIN }}
+          STAGING_SMOKE_EMAIL: ${{ vars.STAGING_SMOKE_EMAIL }}
+          STAGING_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: node ../.github/scripts/smoke-staging.mjs
+
+      - name: Finalize deployment evidence
+        if: always() && steps.render.outputs.deploy-id != ''
+        env:
+          METADATA_PATH: ${{ steps.render.outputs.metadata-path }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          temporary_file="${RUNNER_TEMP}/staging-deployment-metadata.final.json"
+          jq --arg smokeOutcome "$SMOKE_OUTCOME" \
+            '. + {smokeOutcome: $smokeOutcome}' \
+            "$METADATA_PATH" > "$temporary_file"
+          mv "$temporary_file" "$METADATA_PATH"
+
+      - name: Upload deployment evidence
+        if: always() && steps.render.outputs.deploy-id != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: staging-deployment-${{ github.sha }}
+          path: ${{ steps.render.outputs.metadata-path }}
           if-no-files-found: error
           retention-days: 30
