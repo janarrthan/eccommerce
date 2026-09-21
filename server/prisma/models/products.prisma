@@ -27,6 +27,7 @@ model ProductVariant {
   optionValues ProductVariantOptionValue[]
   imageLinks   ProductVariantImage[]
   prices       ProductVariantPrice[]
+  cartItems    CartItem[]
   createdAt    DateTime                    @default(now())
   updatedAt    DateTime                    @updatedAt
 
