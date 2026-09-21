@@ -7,9 +7,11 @@ This backend uses a modular monolith structure.
 
 The commerce model is single-store. Public client APIs live under `/api/storefront`, protected administration APIs live under `/api/admin`, and roles and permissions are resolved from database assignments on each administrative request.
 
-The `pricing` module owns currency settings, exchange-rate cache ingestion, deterministic minor-unit conversion, and price resolution. Product variants own explicit price records, while the product module asks pricing for one customer-currency price instead of implementing conversion itself. Future cart and order modules must reuse this boundary and persist resolved-price snapshots.
+The `pricing` module owns currency settings, exchange-rate cache ingestion, deterministic minor-unit conversion, and price resolution. Product variants own explicit price records, while product and cart modules ask pricing for customer-currency prices instead of implementing conversion themselves. The cart stores variant identities and quantities, resolves current prices on every response, and leaves immutable charged-price and exchange-rate snapshots to the future order and checkout boundary.
 
-Prisma models are split by concern under `prisma/models/`: core products and variants, categories, product options, product images, pricing, authentication, and authorization. Relations may cross these files because `prisma.config.ts` loads the complete `prisma` schema directory.
+The authenticated cart API lives under `/api/storefront/cart`. `GET /` reads the current cart without creating an empty database row. `PUT /items/:variantId` idempotently creates a line or replaces its absolute quantity, and `DELETE /items/:variantId` idempotently removes it. Mutations require the session's CSRF token. Serializable transactions, bounded conflict retries, database uniqueness, stock checks, and request limits protect concurrent writes. A cart response keeps unavailable lines visible with an explicit availability reason and marks whether the complete cart is checkout-ready.
+
+Prisma models are split by concern under `prisma/models/`: core products and variants, categories, product options, product images, pricing, carts, authentication, and authorization. Relations may cross these files because `prisma.config.ts` loads the complete `prisma` schema directory.
 
 The app should remain one deployable Express service. Do not split this project into microservices.
 
