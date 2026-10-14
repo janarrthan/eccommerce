@@ -11,6 +11,8 @@ The `pricing` module owns currency settings, exchange-rate cache ingestion, dete
 
 The authenticated cart API lives under `/api/storefront/cart`. `GET /` reads the current cart without creating an empty database row. `PUT /items/:variantId` idempotently creates a line or replaces its absolute quantity, and `DELETE /items/:variantId` idempotently removes it. Mutations require the session's CSRF token. Serializable transactions, bounded conflict retries, database uniqueness, stock checks, and request limits protect concurrent writes. A cart response keeps unavailable lines visible with an explicit availability reason and marks whether the complete cart is checkout-ready.
 
+The `promotions` module starts with a database-free domain foundation: typed benefit contracts, discount-code normalization, derived lifecycle status, targeting and minimum primitives, integer-only benefit calculations, and deterministic largest-remainder allocation. It deliberately does not import Prisma or Express. Later persistence and cart orchestration will load server-owned data and call this pure layer, which keeps one calculation contract reusable by cart previews and authoritative checkout revalidation.
+
 Prisma models are split by concern under `prisma/models/`: core products and variants, categories, product options, product images, pricing, carts, authentication, and authorization. Relations may cross these files because `prisma.config.ts` loads the complete `prisma` schema directory.
 
 The app should remain one deployable Express service. Do not split this project into microservices.

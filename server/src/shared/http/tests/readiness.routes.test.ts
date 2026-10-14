@@ -60,6 +60,7 @@ describe("application readiness routes", () => {
       expect(checkDatabase).toHaveBeenCalledOnce();
       expect(response.body).toEqual({
         error: {
+          code: "internal.unexpected_error",
           message: "Internal server error.",
         },
       });
