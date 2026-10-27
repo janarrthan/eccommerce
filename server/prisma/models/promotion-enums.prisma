@@ -1,0 +1,86 @@
+// These values match the database-free vocabulary in promotions.constants.ts.
+// For example, PRODUCT_DISCOUNT has the same meaning in a stored rule and a calculator input.
+enum PromotionBenefitType {
+  PRODUCT_DISCOUNT
+  ORDER_DISCOUNT
+  BUY_X_GET_Y
+  FREE_SHIPPING
+}
+
+enum PromotionActivationMethod {
+  AUTOMATIC
+  DISCOUNT_CODE
+}
+
+enum PromotionRevisionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum PromotionCalculationMethod {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PromotionFixedApplicationMode {
+  ONCE_PER_ORDER
+  PER_ELIGIBLE_UNIT
+}
+
+enum PromotionTargetMode {
+  ALL_PRODUCTS
+  SPECIFIC_MERCHANDISE
+}
+
+enum PromotionProductMinimumMode {
+  NONE
+  ELIGIBLE_MERCHANDISE_AMOUNT
+  ELIGIBLE_UNIT_QUANTITY
+}
+
+enum PromotionOrderMinimumMode {
+  NONE
+  MERCHANDISE_SUBTOTAL
+  MERCHANDISE_UNIT_QUANTITY
+}
+
+enum PromotionBuyRequirementMode {
+  ELIGIBLE_QUANTITY
+  ELIGIBLE_MERCHANDISE_AMOUNT
+}
+
+enum PromotionRewardMethod {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE
+}
+
+enum PromotionApplicationFrequency {
+  ONCE_PER_ORDER
+  REPEAT_FOR_EVERY_REQUIREMENT
+}
+
+enum PromotionDestinationMode {
+  ALL_SERVICEABLE_COUNTRIES
+  SELECTED_COUNTRIES
+  SHIPPING_ZONES
+}
+
+enum PromotionShippingMinimumMode {
+  NONE
+  MERCHANDISE_SUBTOTAL
+  MERCHANDISE_UNIT_QUANTITY
+}
+
+enum PromotionAmountPurpose {
+  BENEFIT_FIXED
+  MINIMUM_PURCHASE
+  MAXIMUM_DISCOUNT
+  SHIPPING_RATE_CEILING
+}
+
+enum PromotionTargetRole {
+  PRODUCT_DISCOUNT
+  BOGO_BUYS
+  BOGO_GETS
+}

@@ -1,35 +1,37 @@
 model Product {
-  id            String            @id @default(cuid())
-  name          String
-  slug          String            @unique
-  description   String
-  images        ProductImage[]
-  isActive      Boolean           @default(true)
-  categoryLinks ProductCategory[]
-  variants      ProductVariant[]
-  options       ProductOption[]
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id               String                   @id @default(cuid())
+  name             String
+  slug             String                   @unique
+  description      String
+  images           ProductImage[]
+  isActive         Boolean                  @default(true)
+  categoryLinks    ProductCategory[]
+  variants         ProductVariant[]
+  options          ProductOption[]
+  promotionTargets PromotionTargetProduct[]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
 
   @@index([isActive])
 }
 
 model ProductVariant {
-  id           String                      @id @default(cuid())
-  productId    String
-  product      Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name         String                      @default("Default")
-  sku          String                      @unique
-  stock        Int                         @default(0)
-  isActive     Boolean                     @default(true)
+  id               String                      @id @default(cuid())
+  productId        String
+  product          Product                     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name             String                      @default("Default")
+  sku              String                      @unique
+  stock            Int                         @default(0)
+  isActive         Boolean                     @default(true)
   // Null denotes an archived or legacy variant without an active option selection.
-  optionKey    String?                     @db.VarChar(64)
-  optionValues ProductVariantOptionValue[]
-  imageLinks   ProductVariantImage[]
-  prices       ProductVariantPrice[]
-  cartItems    CartItem[]
-  createdAt    DateTime                    @default(now())
-  updatedAt    DateTime                    @updatedAt
+  optionKey        String?                     @db.VarChar(64)
+  optionValues     ProductVariantOptionValue[]
+  imageLinks       ProductVariantImage[]
+  prices           ProductVariantPrice[]
+  cartItems        CartItem[]
+  promotionTargets PromotionTargetVariant[]
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
 
   @@unique([productId, optionKey])
   @@index([productId, isActive])

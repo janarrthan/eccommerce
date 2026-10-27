@@ -23,17 +23,19 @@ model CommerceSettings {
 }
 
 model CommerceCurrency {
-  code            String                @id @db.VarChar(3)
-  minorUnitDigits Int                   @default(2)
-  isEnabled       Boolean               @default(true)
-  prices          ProductVariantPrice[]
+  code             String                    @id @db.VarChar(3)
+  minorUnitDigits  Int                       @default(2)
+  isEnabled        Boolean                   @default(true)
+  prices           ProductVariantPrice[]
+  promotionAmounts PromotionCurrencyAmount[]
+  campaignBudgets  CampaignCurrencyBudget[]
   // Prisma represents this reverse relation as an array because baseCurrencyCode is not unique.
   // The application is still single-store and only uses CommerceSettings with ID "default".
-  settingsAsBase  CommerceSettings[]
-  ratesAsBase     ExchangeRate[]        @relation("ExchangeRateBaseCurrency")
-  ratesAsQuote    ExchangeRate[]        @relation("ExchangeRateQuoteCurrency")
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  settingsAsBase   CommerceSettings[]
+  ratesAsBase      ExchangeRate[]            @relation("ExchangeRateBaseCurrency")
+  ratesAsQuote     ExchangeRate[]            @relation("ExchangeRateQuoteCurrency")
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 }
 
 // One base-currency major unit equals `rate` quote-currency major units.

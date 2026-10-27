@@ -110,8 +110,7 @@ export const PROMOTION_EVALUATION_STAGES = [
 export const MIN_DISCOUNT_CODE_LENGTH = 6;
 export const MAX_DISCOUNT_CODE_LENGTH = 16;
 
-// The secure generator is a later slice. When it is added, generated codes should start at 12 characters unless a
-// named workflow has a different reviewed requirement.
+// Generated codes default to 12 characters, within the same 6–16-character limits as manually entered codes.
 export const DEFAULT_GENERATED_DISCOUNT_CODE_LENGTH = 12;
 
 export const MIN_PERCENTAGE_BASIS_POINTS = 1;

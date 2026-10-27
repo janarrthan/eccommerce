@@ -1,0 +1,48 @@
+/// Groups one merchandise selection, such as the shoes selected as BOGO_BUYS.
+///
+/// One role may occur only once per revision. Valid roles depend on the benefit; for example,
+/// BOGO_GETS describes reward merchandise for Buy X Get Y, not an order discount.
+model PromotionTargetSet {
+  id         String                    @id @default(cuid())
+  revisionId String
+  revision   PromotionRevision         @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  role       PromotionTargetRole
+  products   PromotionTargetProduct[]
+  variants   PromotionTargetVariant[]
+  categories PromotionTargetCategory[]
+
+  @@unique([revisionId, role])
+}
+
+/// Includes one product in a target union, such as every active variant of the Blue Shoe product.
+model PromotionTargetProduct {
+  targetSetId String
+  targetSet   PromotionTargetSet @relation(fields: [targetSetId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@id([targetSetId, productId])
+  @@index([productId])
+}
+
+/// Includes one variant, such as a size-42 Blue Shoe, without a polymorphic unvalidated target ID.
+model PromotionTargetVariant {
+  targetSetId String
+  targetSet   PromotionTargetSet @relation(fields: [targetSetId], references: [id], onDelete: Cascade)
+  variantId   String
+  variant     ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@id([targetSetId, variantId])
+  @@index([variantId])
+}
+
+/// References a live category, such as Footwear; membership is loaded again during each evaluation.
+model PromotionTargetCategory {
+  targetSetId String
+  targetSet   PromotionTargetSet @relation(fields: [targetSetId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([targetSetId, categoryId])
+  @@index([categoryId])
+}

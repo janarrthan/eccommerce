@@ -14,8 +14,8 @@ export type PromotionErrorCode = (typeof PROMOTION_ERROR_CODES)[keyof typeof PRO
 /**
  * Describes a deterministic promotion-rule failure without depending on Express or another delivery mechanism.
  *
- * For example, a negative amount raises `promotion.amount_invalid`. A future HTTP service can translate that failure,
- * while a checkout worker can record the same code without importing Express.
+ * For example, a negative amount raises `promotion.amount_invalid`. The stable code identifies the failure
+ * independently of its message, so changing the wording does not break error handling.
  */
 export class PromotionDomainError extends Error {
   constructor(

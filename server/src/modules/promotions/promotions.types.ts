@@ -146,8 +146,8 @@ export type PromotionCartLine = Readonly<{
 /**
  * Contains one complete draft or published revision without a Prisma dependency.
  *
- * A repository will eventually map database rows into this object before calculation. Keeping that translation at the
- * boundary prevents generated Prisma types from becoming the promotion engine's public language.
+ * Plain values such as `campaignId` keep the calculation contract independent of database access.
+ * This prevents generated Prisma types from becoming the promotion engine's public language.
  */
 export type PromotionRevisionContract = Readonly<{
   id: string;
@@ -199,7 +199,7 @@ type PromotionCandidateBase = Readonly<{
 export type PromotionCandidate = PromotionCandidateBase &
   Readonly<{ activationMethod: "AUTOMATIC"; code: null } | { activationMethod: "DISCOUNT_CODE"; code: string }>;
 
-/** Records requested and applied money so a later order snapshot can explain capping and line attribution. */
+/** Records requested and applied money to explain capping and the amount assigned to each cart line. */
 export type PromotionAdjustment = Readonly<{
   promotionId: string;
   revisionId: string;

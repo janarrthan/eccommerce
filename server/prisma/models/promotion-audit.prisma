@@ -1,0 +1,45 @@
+/// Preserves an administration event, such as deleting a never-published SAVE20 draft.
+///
+/// Entity and actor IDs are intentional scalar snapshots, not cascading foreign keys. The event must survive
+/// deletion of that draft or actor account. The service validates live IDs before writing the event and stores
+/// only a bounded redacted summary, never a whole request or customer details.
+///
+/// Audit events are append-only evidence. Prisma field declarations alone cannot prevent someone
+/// from updating or deleting an event such as the record of a SAVE20 draft deletion.
+model PromotionAuditEvent {
+  id            String   @id @default(cuid())
+  promotionId   String?
+  revisionId    String?
+  actorUserId   String
+  action        String   @db.VarChar(64)
+  reason        String?  @db.VarChar(1000)
+  correlationId String   @db.VarChar(128)
+  changeSummary Json
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([promotionId, createdAt])
+  @@index([revisionId])
+  @@index([actorUserId, createdAt])
+  @@index([correlationId])
+}
+
+/// Preserves campaign administration history, such as changing a shared sale budget.
+///
+/// Scalar source IDs retain the evidence after a never-published campaign is deleted.
+/// Redaction and append-only enforcement follow the same rules as promotion audit events.
+model CampaignAuditEvent {
+  id            String   @id @default(cuid())
+  campaignId    String
+  revisionId    String?
+  actorUserId   String
+  action        String   @db.VarChar(64)
+  reason        String?  @db.VarChar(1000)
+  correlationId String   @db.VarChar(128)
+  changeSummary Json
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([campaignId, createdAt])
+  @@index([revisionId])
+  @@index([actorUserId, createdAt])
+  @@index([correlationId])
+}

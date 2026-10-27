@@ -1,0 +1,48 @@
+/// Groups offers that share schedule or budget rules, such as a November sale.
+///
+/// Membership is optional. Usage is counted against the stable campaign identity so changing a
+/// revision's budget from $1,000 to $1,500 does not erase discounts already consumed.
+model Campaign {
+  id                 String              @id @default(cuid())
+  internalName       String              @db.VarChar(200)
+  firstPublishedAt   DateTime?           @db.Timestamptz(3)
+  disabledAt         DateTime?           @db.Timestamptz(3)
+  archivedAt         DateTime?           @db.Timestamptz(3)
+  revisions          CampaignRevision[]
+  promotionRevisions PromotionRevision[]
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
+}
+
+/// Stores one campaign schedule and optional usage limit, such as November's published sale window.
+model CampaignRevision {
+  id               String                   @id @default(cuid())
+  campaignId       String
+  campaign         Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  version          Int
+  status           PromotionRevisionStatus  @default(DRAFT)
+  startsAt         DateTime                 @db.Timestamptz(3)
+  endsAt           DateTime?                @db.Timestamptz(3)
+  authoredTimeZone String                   @db.VarChar(100)
+  redemptionLimit  Int?
+  publishedAt      DateTime?                @db.Timestamptz(3)
+  currencyBudgets  CampaignCurrencyBudget[]
+  createdAt        DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                 @updatedAt @db.Timestamptz(3)
+
+  @@unique([campaignId, version])
+  @@index([campaignId, status, publishedAt, version])
+  @@index([status, startsAt, endsAt])
+}
+
+/// Stores a campaign's explicit currency budget, such as 100,000 minor units of USD discount spend.
+model CampaignCurrencyBudget {
+  campaignRevisionId String
+  campaignRevision   CampaignRevision @relation(fields: [campaignRevisionId], references: [id], onDelete: Cascade)
+  currencyCode       String           @db.VarChar(3)
+  currency           CommerceCurrency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+  spendLimitMinor    Int
+
+  @@id([campaignRevisionId, currencyCode])
+  @@index([currencyCode])
+}
