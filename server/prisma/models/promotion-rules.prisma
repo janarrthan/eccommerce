@@ -1,0 +1,75 @@
+/// Stores a product discount's method and minimum, such as 20% off eligible shoes.
+///
+/// Fixed amounts, monetary minimums, and optional maxima are currency rows on the revision.
+/// Method-specific fields are mutually exclusive; for example, a percentage discount has no fixed application mode.
+model ProductDiscountRule {
+  revisionId            String                         @id
+  revision              PromotionRevision              @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  calculationMethod     PromotionCalculationMethod
+  fixedApplicationMode  PromotionFixedApplicationMode?
+  targetMode            PromotionTargetMode
+  minimumMode           PromotionProductMinimumMode    @default(NONE)
+  percentageBasisPoints Int?
+  minimumQuantity       Int?
+}
+
+/// Stores an order discount, such as 10% off the subtotal after product discounts.
+model OrderDiscountRule {
+  revisionId            String                     @id
+  revision              PromotionRevision          @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  calculationMethod     PromotionCalculationMethod
+  minimumMode           PromotionOrderMinimumMode  @default(NONE)
+  percentageBasisPoints Int?
+  minimumQuantity       Int?
+}
+
+/// Stores a Buy X Get Y rule, such as buying two shoes and receiving a third free.
+///
+/// The revision's BOGO_BUYS and BOGO_GETS target sets describe the two merchandise selections.
+/// A missing maximum in repeat mode means no administrator cap; once mode must reject a maximum.
+model BuyXGetYRule {
+  revisionId                  String                        @id
+  revision                    PromotionRevision             @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  requirementMode             PromotionBuyRequirementMode
+  qualifyingQuantity          Int?
+  rewardQuantity              Int
+  rewardMethod                PromotionRewardMethod
+  rewardPercentageBasisPoints Int?
+  frequency                   PromotionApplicationFrequency @default(ONCE_PER_ORDER)
+  maximumUsesPerOrder         Int?
+}
+
+/// Stores free-shipping eligibility, such as a minimum subtotal and selected destination countries.
+///
+/// The shipping-rate ceiling is a currency amount, not a partial shipping discount.
+model FreeShippingRule {
+  revisionId      String                       @id
+  revision        PromotionRevision            @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  destinationMode PromotionDestinationMode
+  minimumMode     PromotionShippingMinimumMode @default(NONE)
+  minimumQuantity Int?
+  countries       PromotionShippingCountry[]
+  zones           PromotionShippingZone[]
+}
+
+/// Targets a normalized country code, such as LK, without storing mutable country labels.
+model PromotionShippingCountry {
+  revisionId  String
+  rule        FreeShippingRule @relation(fields: [revisionId], references: [revisionId], onDelete: Cascade)
+  countryCode String           @db.VarChar(2)
+
+  @@id([revisionId, countryCode])
+}
+
+/// References a shipping-owned zone, such as an administrator's Colombo delivery area.
+///
+/// Restrict deletion so removing a zone cannot silently rewrite a published promotion's destinations.
+model PromotionShippingZone {
+  revisionId     String
+  rule           FreeShippingRule @relation(fields: [revisionId], references: [revisionId], onDelete: Cascade)
+  shippingZoneId String
+  shippingZone   ShippingZone     @relation(fields: [shippingZoneId], references: [id], onDelete: Restrict)
+
+  @@id([revisionId, shippingZoneId])
+  @@index([shippingZoneId])
+}

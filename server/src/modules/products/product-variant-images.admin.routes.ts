@@ -9,7 +9,7 @@ import { configureProductVariantImages, getProductVariantImageAssignments } from
 
 export const productVariantImagesAdminRouter = Router();
 
-// Return the image library and explicit links needed by the future admin editor.
+// Return the product image library alongside the explicit variant assignments for administration.
 productVariantImagesAdminRouter.get(
   "/:productId/variant-images",
   requirePermission(PERMISSION_CODES.CATALOG_READ),

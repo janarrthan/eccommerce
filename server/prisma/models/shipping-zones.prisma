@@ -1,0 +1,12 @@
+/// Supplies the stable shipping-owned identity needed by promotion zone foreign keys.
+///
+/// A zone name identifies the area to administrators; it does not define address matching.
+/// For example, naming a zone "Colombo" does not make an address match it.
+model ShippingZone {
+  id               String                  @id @default(cuid())
+  name             String                  @db.VarChar(200)
+  isActive         Boolean                 @default(false)
+  promotionTargets PromotionShippingZone[]
+  createdAt        DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                @updatedAt @db.Timestamptz(3)
+}

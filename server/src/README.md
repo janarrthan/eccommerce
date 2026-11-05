@@ -11,7 +11,13 @@ The `pricing` module owns currency settings, exchange-rate cache ingestion, dete
 
 The authenticated cart API lives under `/api/storefront/cart`. `GET /` reads the current cart without creating an empty database row. `PUT /items/:variantId` idempotently creates a line or replaces its absolute quantity, and `DELETE /items/:variantId` idempotently removes it. Mutations require the session's CSRF token. Serializable transactions, bounded conflict retries, database uniqueness, stock checks, and request limits protect concurrent writes. A cart response keeps unavailable lines visible with an explicit availability reason and marks whether the complete cart is checkout-ready.
 
-Prisma models are split by concern under `prisma/models/`: core products and variants, categories, product options, product images, pricing, carts, authentication, and authorization. Relations may cross these files because `prisma.config.ts` loads the complete `prisma` schema directory.
+The `promotions` module starts with a database-free domain foundation: typed benefit contracts, discount-code normalization, derived lifecycle status, targeting and minimum primitives, integer-only benefit calculations, and deterministic largest-remainder allocation. It deliberately does not import Prisma or Express. Later persistence and cart orchestration will load server-owned data and call this pure layer, which keeps one calculation contract reusable by cart previews and authoritative checkout revalidation.
+
+Prisma models are split by concern under `prisma/models/`: core products and variants, categories, product options, product images, pricing, carts, authentication, authorization, promotions, and optional campaigns. Relations may cross these files because `prisma.config.ts` loads the complete `prisma` schema directory.
+
+Promotion persistence schema source now separates stable identities with activation codes, revisions, four typed rule tables, target joins, currency values, combination policies, optional campaign revisions/budgets, and audit snapshots. It remains dormant: no promotion routes, cart adjustments, or seed changes are introduced. The user-reviewed migration must add PostgreSQL-only checks, schedule exclusions, aggregate validation, and immutability guards before administration becomes operational. See [the persistence guide](../../guides/building-the-promotion-persistence-schema.md).
+
+ShippingZone supplies an inactive shipping-owned identity for real promotion foreign keys. Geographic memberships and address matching belong to the later shipping slice. Audit source IDs are scalar snapshots so deleting a never-published draft or an actor account cannot erase evidence; later services validate live IDs before writing bounded redacted events.
 
 The app should remain one deployable Express service. Do not split this project into microservices.
 

@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { app } from "../../../app.js";
 import { prisma } from "../../../shared/db/prisma.js";
 import { CSRF_HEADER_NAME } from "../../../shared/middleware/csrf.js";
+import { expectPostgresRejection } from "../../../shared/testing/postgres-error.js";
 import { COMMERCE_SETTINGS_ID } from "../../pricing/pricing.constants.js";
 import { configureProductOptions } from "../../products/product-options.service.js";
 import { MAX_CART_DISTINCT_ITEMS } from "../cart.constants.js";
@@ -380,11 +381,12 @@ describe("cart routes", () => {
     });
     const cart = await prisma.cart.create({ data: { userId: user.id } });
 
-    await expect(
+    await expectPostgresRejection(
       prisma.cartItem.create({
         data: { cartId: cart.id, variantId, quantity: 0 },
       }),
-    ).rejects.toThrow();
+      "23514",
+    );
     expect(await prisma.cartItem.count({ where: { cartId: cart.id } })).toBe(0);
   });
 

@@ -92,6 +92,12 @@ $env:NODE_ENV = "test"
 
 ## Adding Tests
 
+For database integrity assertions, use `expectPostgresRejection(operation, sqlState)` from `postgres-error.ts`.
+For example, require `23514` when inserting a cart quantity of zero, and `23505` for a duplicate discount code.
+The helper reads the PostgreSQL adapter's `cause.originalCode` or legacy Prisma raw-query `meta.code` without matching
+message text. Unknown error layouts and unrelated SQLSTATE values fail the assertion, so a missing table cannot be
+mistaken for a working constraint. Keep dependency-specific error extraction in this helper when upgrading Prisma or pg.
+
 - Keep module tests in `src/modules/<module>/tests/` and infrastructure tests under the nearest shared `tests/` directory.
 - Pure tests named `*.unit.test.ts`, `*.logic.test.ts`, or `*.validation.test.ts` belong to the unit project. The authentication middleware test is also explicitly selected as a database-free test.
 - Other `src/**/*.test.ts` files belong to integration. This includes the health application test because it imports the complete Express application. A unit test that imports Prisma fails before connecting; it must instead test pure logic or belong to integration.

@@ -1,0 +1,90 @@
+/// Stores a promotion's stable identity, such as the discount-code offer SAVE20.
+///
+/// Mutable rules belong to revisions. After first publication, benefit, activation method, and code are fixed
+/// so an old advertised code cannot silently become a different offer.
+model Promotion {
+  id               String                    @id @default(cuid())
+  internalName     String                    @db.VarChar(200)
+  benefitType      PromotionBenefitType
+  activationMethod PromotionActivationMethod
+  firstPublishedAt DateTime?                 @db.Timestamptz(3)
+  disabledAt       DateTime?                 @db.Timestamptz(3)
+  archivedAt       DateTime?                 @db.Timestamptz(3)
+  normalizedCode   String?                   @unique @db.VarChar(16)
+  revisions        PromotionRevision[]
+  createdAt        DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                  @updatedAt @db.Timestamptz(3)
+
+  @@index([activationMethod, archivedAt, disabledAt])
+}
+
+/// Stores promotion settings, such as how many discount codes are allowed per cart.
+model PromotionSettings {
+  id                  String   @id @default("default")
+  maximumCodesPerCart Int      @default(1)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// Stores one version of an offer, such as SAVE20 version two beginning on November 1.
+///
+/// A draft can be edited. Published rules are immutable so SAVE20 version one's meaning remains stable.
+/// @updatedAt tracks edits; it does not enforce immutability. Publication can close the latest published
+/// window in a controlled transaction to make room for its successor.
+model PromotionRevision {
+  id                    String                      @id @default(cuid())
+  promotionId           String
+  promotion             Promotion                   @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  campaignId            String?
+  campaign              Campaign?                   @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  version               Int
+  status                PromotionRevisionStatus     @default(DRAFT)
+  startsAt              DateTime                    @db.Timestamptz(3)
+  endsAt                DateTime?                   @db.Timestamptz(3)
+  authoredTimeZone      String                      @db.VarChar(100)
+  publicTitle           String?                     @db.VarChar(200)
+  globalRedemptionLimit Int?
+  perCustomerLimit      Int?
+  publishedAt           DateTime?                   @db.Timestamptz(3)
+  productDiscountRule   ProductDiscountRule?
+  orderDiscountRule     OrderDiscountRule?
+  buyXGetYRule          BuyXGetYRule?
+  freeShippingRule      FreeShippingRule?
+  combinationPolicy     PromotionCombinationPolicy?
+  targetSets            PromotionTargetSet[]
+  currencyAmounts       PromotionCurrencyAmount[]
+  createdAt             DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                    @updatedAt @db.Timestamptz(3)
+
+  @@unique([promotionId, version])
+  @@index([promotionId, status, publishedAt, version])
+  @@index([status, startsAt, endsAt])
+  @@index([campaignId])
+}
+
+/// Stores explicit promotion money, such as a 2,000-minor-unit USD fixed benefit.
+///
+/// One purpose has at most one amount per currency per revision. Uniqueness does not establish currency coverage;
+/// for example, a USD amount does not supply the EUR amount needed for an offer supporting both currencies.
+model PromotionCurrencyAmount {
+  revisionId   String
+  revision     PromotionRevision      @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  purpose      PromotionAmountPurpose
+  currencyCode String                 @db.VarChar(3)
+  currency     CommerceCurrency       @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+  amountMinor  Int
+
+  @@id([revisionId, purpose, currencyCode])
+  @@index([currencyCode])
+}
+
+/// Records mutual combination choices, such as a product offer permitting an order discount.
+///
+/// Every revision requires one policy at transaction commit. All flags default to false so missing choices
+/// cannot accidentally permit stacking. Free shipping must never enable combinesWithShipping.
+model PromotionCombinationPolicy {
+  revisionId           String            @id
+  revision             PromotionRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  combinesWithProduct  Boolean           @default(false)
+  combinesWithOrder    Boolean           @default(false)
+  combinesWithShipping Boolean           @default(false)
+}
